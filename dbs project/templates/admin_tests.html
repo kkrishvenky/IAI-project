@@ -1,0 +1,189 @@
+{% extends "layout.html" %}
+{% block title %}Manage Tests — MCQ System{% endblock %}
+{% block page_title %}Test Manager{% endblock %}
+{% block page_subtitle %}Create, activate and manage all tests{% endblock %}
+
+{% block topbar_actions %}
+    <button class="btn btn-primary btn-sm" data-modal-open="createTestModal">
+        ➕ Create Test
+    </button>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── TESTS TABLE ─────────────────────────────────────── -->
+<div class="card">
+    <div class="filter-bar">
+        <div class="form-group" style="flex:2; margin-bottom:0; min-width:200px;">
+            <label class="form-label">🔍 Search Tests</label>
+            <input type="text" id="tableSearch" class="form-control" placeholder="Test name, description...">
+        </div>
+        <div class="form-group" style="min-width:140px; margin-bottom:0;">
+            <label class="form-label">Status</label>
+            <select id="statusFilter" class="form-control">
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width:60px;">ID</th>
+                    <th>Test Name</th>
+                    <th style="width:90px;">Questions</th>
+                    <th style="width:90px;">Duration</th>
+                    <th style="width:100px;">Attempts</th>
+                    <th style="width:100px;">Status</th>
+                    <th style="width:160px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                {% for t in tests %}
+                <tr data-status="{{ 'active' if t.is_active else 'inactive' }}">
+                    <td class="text-muted font-sm">{{ t.test_id }}</td>
+                    <td>
+                        <div style="color: var(--text-primary); font-weight: 600;">{{ t.test_name }}</div>
+                        <div class="font-sm text-muted" style="margin-top: 2px;">{{ t.description or 'No description' }}</div>
+                    </td>
+                    <td>
+                        <span style="font-weight:700; color: var(--accent-cyan-light);">{{ t.q_count }}</span>
+                        <span class="text-muted font-sm"> Qs</span>
+                    </td>
+                    <td>
+                        <span style="font-weight:600;">{{ t.duration_minutes }}</span>
+                        <span class="text-muted font-sm"> min</span>
+                    </td>
+                    <td>
+                        <span style="font-weight:600; color: var(--accent-purple-light);">{{ t.attempt_count }}</span>
+                    </td>
+                    <td>
+                        {% if t.is_active %}
+                            <span class="badge badge-active">● Active</span>
+                        {% else %}
+                            <span class="badge badge-inactive">○ Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex gap-8">
+                            <form method="POST" action="{{ url_for('admin_tests') }}" style="display:inline;">
+                                <input type="hidden" name="action" value="toggle_active">
+                                <input type="hidden" name="test_id" value="{{ t.test_id }}">
+                                <button type="submit" class="btn btn-ghost btn-sm" title="Toggle Active">
+                                    {% if t.is_active %}⏸{% else %}▶️{% endif %}
+                                </button>
+                            </form>
+                            <form method="POST" action="{{ url_for('admin_tests') }}" style="display:inline;"
+                                  onsubmit="return MCQ.confirmDelete('Delete test &quot;{{ t.test_name }}&quot;? All student attempts will be removed.')">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="test_id" value="{{ t.test_id }}">
+                                <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📝</div>
+                            <h3>No tests created yet</h3>
+                            <p>Create your first test using the button above.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div style="padding:12px 24px; border-top:1px solid var(--border-color); color:var(--text-muted); font-size:0.8rem;">
+        {{ tests | length }} test(s) total
+    </div>
+</div>
+
+
+<!-- ══ CREATE TEST MODAL ════════════════════════════════ -->
+<div class="modal-overlay" id="createTestModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span>📝 Create New Test</span>
+            <button class="modal-close" data-modal-close="createTestModal">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('admin_tests') }}">
+            <input type="hidden" name="action" value="add">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Test Name *</label>
+                    <input type="text" name="test_name" class="form-control" required
+                           placeholder="e.g. Midterm Exam - Database Systems">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description</label>
+                    <textarea name="description" class="form-control" rows="2"
+                              placeholder="Brief description of the test..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Duration (Minutes) *</label>
+                        <input type="number" name="duration_minutes" class="form-control"
+                               min="5" max="300" value="30" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Subject Pool *</label>
+                        <select name="subject_filter" class="form-control" required>
+                            {% for s in subjects %}
+                            <option value="{{ s }}">{{ s }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Difficulty Filter</label>
+                        <select name="difficulty_filter" class="form-control">
+                            <option value="">Any Difficulty</option>
+                            <option value="Easy">Easy Only</option>
+                            <option value="Medium">Medium Only</option>
+                            <option value="Hard">Hard Only</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Number of Random Questions *</label>
+                    <input type="number" name="num_questions" class="form-control"
+                           min="1" max="100" value="10" required>
+                    <div style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">
+                        Questions will be randomly selected from the chosen subject pool
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-modal-close="createTestModal">Cancel</button>
+                <button type="submit" class="btn btn-primary">🚀 Create Test</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const statusFilter = document.getElementById('statusFilter');
+const searchInput  = document.getElementById('tableSearch');
+
+function applyFilters() {
+    const status = statusFilter.value;
+    const search = searchInput.value.toLowerCase();
+    document.querySelectorAll('#tableBody tr[data-status]').forEach(row => {
+        const matchStatus = !status || row.dataset.status === status;
+        const matchSearch = !search || row.textContent.toLowerCase().includes(search);
+        row.style.display = (matchStatus && matchSearch) ? '' : 'none';
+    });
+}
+
+statusFilter.addEventListener('change', applyFilters);
+searchInput.addEventListener('input', applyFilters);
+</script>
+{% endblock %}

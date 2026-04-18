@@ -1,0 +1,136 @@
+{% extends "layout.html" %}
+{% block title %}Result — {{ result.test_name }}{% endblock %}
+{% block page_title %}Test Result{% endblock %}
+{% block page_subtitle %}{{ result.test_name }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{{ url_for('student_dashboard') }}" class="btn btn-ghost btn-sm">← Back to Dashboard</a>
+{% endblock %}
+
+{% block content %}
+
+{% set score    = result.score | float %}
+{% set total    = result.total_questions | int %}
+{% set pct      = (score / total * 100) if total > 0 else 0 %}
+{% set correct  = score | int %}
+{% set wrong    = total - correct %}
+{% set passed   = pct >= 50 %}
+
+<!-- ── RESULT HERO ─────────────────────────────────────── -->
+<div class="card" style="max-width: 680px; margin: 0 auto 24px;">
+    <div class="result-hero">
+        <!-- Score Circle -->
+        <div class="score-circle {{ 'score-circle-bg-pass' if passed else 'score-circle-bg-fail' }}">
+            <div class="score-circle-number"
+                 style="color: {{ 'var(--accent-green-light)' if passed else 'var(--accent-red-light)' }}">
+                {{ "%.0f"|format(pct) }}%
+            </div>
+            <div class="score-circle-label">{{ 'PASS ✅' if passed else 'FAIL ❌' }}</div>
+        </div>
+
+        <h2 style="font-size:1.6rem; font-weight:800; color:var(--text-primary); margin-bottom:6px;">
+            {{ 'Excellent Work! 🎉' if pct >= 80 else ('Good Job! 👍' if pct >= 50 else 'Keep Practising! 💪') }}
+        </h2>
+        <p style="color:var(--text-muted);">
+            Attempted on {{ result.attempt_date.strftime('%d %B %Y at %H:%M') if result.attempt_date else '—' }}
+        </p>
+
+        <!-- 3 Stat Boxes -->
+        <div class="result-stats-grid">
+            <div class="result-stat">
+                <div class="result-stat-value text-success">{{ correct }}</div>
+                <div class="result-stat-label">✅ Correct</div>
+            </div>
+            <div class="result-stat">
+                <div class="result-stat-value text-danger">{{ wrong }}</div>
+                <div class="result-stat-label">❌ Wrong</div>
+            </div>
+            <div class="result-stat">
+                <div class="result-stat-value text-purple">{{ total }}</div>
+                <div class="result-stat-label">📝 Total</div>
+            </div>
+        </div>
+
+        <!-- Grade Bar -->
+        <div style="margin-top: 28px; text-align:left;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                <span class="font-sm text-muted">Score Progress</span>
+                <span class="font-sm font-bold" style="color: {{ 'var(--accent-green-light)' if passed else 'var(--accent-red-light)' }}">
+                    {{ correct }} / {{ total }} Correct
+                </span>
+            </div>
+            <div class="progress-bar-container" style="height:14px;">
+                <div class="progress-bar-fill" id="resultBar"
+                     style="width:0%; background: {{ 'var(--gradient-green)' if pct >= 75 else ('linear-gradient(135deg,#f59e0b,#d97706)' if pct >= 50 else 'linear-gradient(135deg,#ef4444,#dc2626)') }};">
+                </div>
+            </div>
+        </div>
+
+        <!-- Pass threshold marker note -->
+        <p class="font-sm text-muted" style="margin-top:10px;">
+            Pass threshold: 50% &nbsp;|&nbsp; Your score: <strong style="color:var(--text-primary);">{{ "%.1f"|format(pct) }}%</strong>
+        </p>
+
+        <!-- Action Buttons -->
+        <div style="display:flex; gap:14px; justify-content:center; margin-top:32px; flex-wrap:wrap;">
+            <a href="{{ url_for('student_dashboard') }}" class="btn btn-primary btn-lg">
+                🏠 Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ── PERFORMANCE BREAKDOWN ─────────────────────────── -->
+{% if answers %}
+<div class="card" style="max-width: 680px; margin: 0 auto;">
+    <div class="card-header">
+        <span>📋 Answer Breakdown</span>
+        <span class="badge badge-inactive font-sm">{{ total }} questions</span>
+    </div>
+    <div class="table-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th style="width:40px;">#</th>
+                    <th>Question</th>
+                    <th>Your Answer</th>
+                    <th style="width:80px;">Result</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in answers %}
+                <tr>
+                    <td class="text-muted font-sm">{{ loop.index }}</td>
+                    <td style="color:var(--text-primary); font-size:0.875rem;">{{ a.question_text }}</td>
+                    <td style="font-size:0.875rem;
+                               color: {{ 'var(--accent-green-light)' if a.is_correct else 'var(--accent-red-light)' }};">
+                        {{ a.selected_option_text }}
+                    </td>
+                    <td>
+                        {% if a.is_correct %}
+                            <span class="badge badge-active">✓</span>
+                        {% else %}
+                            <span class="badge badge-hard">✗</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Animate the result bar on load
+window.addEventListener('load', () => {
+    setTimeout(() => {
+        const bar = document.getElementById('resultBar');
+        if (bar) bar.style.width = '{{ "%.2f"|format(pct) }}%';
+    }, 300);
+});
+</script>
+{% endblock %}

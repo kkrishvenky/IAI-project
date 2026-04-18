@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+{% block title %}{{ test.test_name }} — MCQ System{% endblock %}
+{% block page_title %}{{ test.test_name }}{% endblock %}
+{% block page_subtitle %}{{ test.description or 'Complete all questions before the timer runs out' }}{% endblock %}
+
+{% block content %}
+
+<!-- ── STICKY TEST HEADER ─────────────────────────────── -->
+<div class="test-header" id="testHeaderBar">
+    <div class="test-header-info">
+        <h2>{{ test.test_name }}</h2>
+        <p>{{ questions | length }} Questions &nbsp;•&nbsp; {{ test.duration_minutes }} Minutes</p>
+    </div>
+    <div style="display:flex; align-items:center; gap:16px;">
+        <div>
+            <div style="font-size:0.72rem; color:var(--text-muted); text-align:center; margin-bottom:4px;">PROGRESS</div>
+            <div style="font-size:0.9rem; font-weight:700; text-align:center; color:var(--accent-purple-light);" id="answeredCount">0 / {{ questions | length }}</div>
+        </div>
+        <div class="timer-display" id="timerDisplay">⏱ --:--</div>
+    </div>
+</div>
+
+<!-- ── PROGRESS BAR ──────────────────────────────────── -->
+<div class="progress-section">
+    <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progressBar" style="width:0%;"></div>
+    </div>
+    <div class="progress-text">
+        <span>Questions answered: <span id="progressText">0%</span></span>
+        <span>Time: {{ test.duration_minutes }} min</span>
+    </div>
+</div>
+
+<!-- ── QUESTION FORM ─────────────────────────────────── -->
+<form method="POST" id="testForm" action="{{ url_for('take_test', test_id=test.test_id) }}">
+    {% for q in questions %}
+    <div class="question-card" id="qcard_{{ loop.index }}">
+        <div class="question-number">
+            Question {{ loop.index }} of {{ questions | length }}
+        </div>
+        <div class="question-text">{{ q.question_text }}</div>
+        <div class="options-grid">
+            {% set letters = ['A','B','C','D'] %}
+            {% for opt in q.options %}
+            <label class="option-label" for="opt_{{ q.question_id }}_{{ opt.option_id }}">
+                <input type="radio"
+                       id="opt_{{ q.question_id }}_{{ opt.option_id }}"
+                       name="q_{{ q.question_id }}"
+                       value="{{ opt.option_id }}"
+                       required>
+                <span class="option-letter">{{ letters[loop.index0] if loop.index0 < 4 else loop.index }}</span>
+                <span>{{ opt.option_text }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- SUBMIT BUTTON -->
+    <div style="text-align:center; padding: 28px 0 16px;">
+        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn"
+                onclick="return confirmSubmit()">
+            🏁 Submit Test
+        </button>
+        <div class="font-sm text-muted" style="margin-top:12px;" id="submitHint">
+            Make sure to answer all questions before submitting!
+        </div>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TOTAL_QUESTIONS = {{ questions | length }};
+const DURATION_MINS   = {{ test.duration_minutes }};
+const TEST_ID         = {{ test.test_id }};
+
+// ── Timer ──────────────────────────────────────────────
+const timer = new TestTimer(DURATION_MINS, () => {
+    document.getElementById('submitHint').textContent = '⚠️ Time is up! Auto-submitting...';
+    // Remove required to allow partial submission
+    document.querySelectorAll('input[type="radio"]').forEach(r => r.removeAttribute('required'));
+    document.getElementById('testForm').submit();
+});
+
+// ── Progress ───────────────────────────────────────────
+const tracker = new TestProgressTracker(TOTAL_QUESTIONS);
+tracker.init();
+
+// ── Confirm submit ─────────────────────────────────────
+function confirmSubmit() {
+    const answered = document.querySelectorAll('input[type="radio"]:checked').length;
+    const unanswered = TOTAL_QUESTIONS - answered;
+    if (unanswered > 0) {
+        return confirm(`You have ${unanswered} unanswered question(s). Are you sure you want to submit?`);
+    }
+    return true;
+}
+
+// ── Highlight answered questions ────────────────────────
+document.querySelectorAll('input[type="radio"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+        const qId = radio.name; // e.g. "q_42"
+        const card = radio.closest('.question-card');
+        if (card) {
+            card.style.borderColor = 'rgba(139,92,246,0.4)';
+        }
+    });
+});
+
+// ── Start everything ────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    timer.start();
+});
+</script>
+{% endblock %}

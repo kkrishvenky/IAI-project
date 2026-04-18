@@ -1,0 +1,202 @@
+{% extends "layout.html" %}
+{% block title %}Report: {{ student_name }} — MCQ System{% endblock %}
+{% block page_title %}Student Report{% endblock %}
+{% block page_subtitle %}Detailed academic performance for {{ student_name }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{{ url_for('export_student_report', student_id=student_id) }}" class="btn btn-primary btn-sm" style="margin-right: 10px;">⬇️ Export CSV</a>
+    <a href="{{ url_for('admin_students') }}" class="btn btn-ghost btn-sm">← Back to Students</a>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── STUDENT SUMMARY CARDS ──────────────────────────── -->
+<div class="stats-grid" style="grid-template-columns: repeat(4,1fr);">
+    <div class="stat-card purple">
+        <div class="stat-card-icon">📝</div>
+        <div class="stat-card-label">Tests Attempted</div>
+        <div class="stat-card-value">{{ report | length }}</div>
+    </div>
+    <div class="stat-card cyan">
+        <div class="stat-card-icon">✅</div>
+        <div class="stat-card-label">Best Score %</div>
+        <div class="stat-card-value">
+            {% if report %}
+                {{ "%.0f"|format(report | map(attribute='score_pct') | map('float') | max) }}%
+            {% else %}—{% endif %}
+        </div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-card-icon">📊</div>
+        <div class="stat-card-label">Avg Score %</div>
+        <div class="stat-card-value">
+            {% if report %}
+                {% set avg = (report | map(attribute='score_pct') | map('float') | sum) / (report | length) %}
+                {{ "%.0f"|format(avg) }}%
+            {% else %}—{% endif %}
+        </div>
+    </div>
+    <div class="stat-card orange">
+        <div class="stat-card-icon">🏅</div>
+        <div class="stat-card-label">Pass Rate</div>
+        <div class="stat-card-value">
+            {% if report %}
+                {% set passed = report | selectattr('score_pct', 'ge', 50) | list | length %}
+                {{ "%.0f"|format(passed / (report | length) * 100) }}%
+            {% else %}—{% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- ── CHART + TABLE ──────────────────────────────────── -->
+<div class="charts-grid">
+    <div class="card mb-0">
+        <div class="card-header"><span>📈 Score Trend</span></div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="card mb-0">
+        <div class="card-header"><span>🎯 Score Distribution</span></div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="distChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div style="margin-bottom:24px;"></div>
+
+<!-- ── DETAILED TABLE ─────────────────────────────────── -->
+<div class="card">
+    <div class="card-header"><span>📋 All Attempts</span></div>
+    <div class="table-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Test Name</th>
+                    <th style="width:120px;">Score</th>
+                    <th style="width:200px;">Percentage</th>
+                    <th style="width:80px;">Result</th>
+                    <th style="width:160px;">Attempt Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in report %}
+                {% set pct = r.score_pct | float %}
+                <tr>
+                    <td class="text-muted font-sm">{{ loop.index }}</td>
+                    <td style="color:var(--text-primary); font-weight:600;">{{ r.test_name }}</td>
+                    <td>{{ r.score | int }} / {{ r.total_questions }}</td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div class="perf-bar-track">
+                                <div class="perf-bar-fill"
+                                     style="width:{{ pct }}%;
+                                            background: {% if pct >= 75 %}var(--gradient-green){% elif pct >= 50 %}linear-gradient(135deg,#f59e0b,#d97706){% else %}linear-gradient(135deg,#ef4444,#dc2626){% endif %};">
+                                </div>
+                            </div>
+                            <span class="font-bold {% if pct >= 75 %}text-success{% elif pct >= 50 %}text-cyan{% else %}text-danger{% endif %}">
+                                {{ "%.1f"|format(pct) }}%
+                            </span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if pct >= 50 %}
+                            <span class="badge badge-active">Pass</span>
+                        {% else %}
+                            <span class="badge badge-hard">Fail</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted font-sm">
+                        {{ r.attempt_date.strftime('%d %b %Y, %H:%M') if r.attempt_date else '—' }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <h3>No attempts found</h3>
+                            <p>This student has not attempted any tests yet.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const reportData = {{ report | tojson }};
+
+// Score trend line chart
+new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+        labels: reportData.map((r, i) => `Test ${i+1}`),
+        datasets: [{
+            label: 'Score %',
+            data: reportData.map(r => parseFloat(r.score_pct || 0).toFixed(1)),
+            borderColor: '#8b5cf6',
+            backgroundColor: 'rgba(139,92,246,0.1)',
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: '#8b5cf6',
+            pointRadius: 5
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: { beginAtZero: true, max: 100, grid: { color: 'rgba(42,42,58,0.8)' },
+                 ticks: { callback: v => v + '%' } },
+            x: { grid: { display: false } }
+        },
+        plugins: { legend: { display: false } }
+    }
+});
+
+// Distribution bar chart
+const ranges = ['0–25%','26–50%','51–75%','76–100%'];
+const counts = [0,0,0,0];
+reportData.forEach(r => {
+    const p = parseFloat(r.score_pct || 0);
+    if (p <= 25) counts[0]++;
+    else if (p <= 50) counts[1]++;
+    else if (p <= 75) counts[2]++;
+    else counts[3]++;
+});
+
+new Chart(document.getElementById('distChart'), {
+    type: 'bar',
+    data: {
+        labels: ranges,
+        datasets: [{
+            label: 'Tests',
+            data: counts,
+            backgroundColor: ['rgba(239,68,68,0.7)','rgba(245,158,11,0.7)','rgba(6,182,212,0.7)','rgba(16,185,129,0.7)'],
+            borderRadius: 6
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(42,42,58,0.8)' } }
+        }
+    }
+});
+</script>
+{% endblock %}

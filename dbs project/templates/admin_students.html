@@ -1,0 +1,99 @@
+{% extends "layout.html" %}
+{% block title %}Students — MCQ System{% endblock %}
+{% block page_title %}Student Overview{% endblock %}
+{% block page_subtitle %}View all registered students and their performance{% endblock %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.css" rel="stylesheet" type="text/css">
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="table-wrapper">
+        <table class="table" id="dataTable">
+            <thead>
+                <tr>
+                    <th style="width:60px;">ID</th>
+                    <th>Student</th>
+                    <th>Email</th>
+                    <th style="width:110px;">Tests Taken</th>
+                    <th style="width:180px;">Avg Score %</th>
+                    <th style="width:130px;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                {% for s in students %}
+                {% set perf = 'none' if s.tests_taken == 0 else ('high' if s.avg_score_pct >= 80 else ('mid' if s.avg_score_pct >= 50 else 'low')) %}
+                <tr data-perf="{{ perf }}">
+                    <td class="text-muted font-sm">{{ s.user_id }}</td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:34px; height:34px; border-radius:8px; background:var(--gradient-purple);
+                                        display:flex; align-items:center; justify-content:center;
+                                        font-weight:700; font-size:0.85rem; color:white; flex-shrink:0;">
+                                {{ s.username[0].upper() }}
+                            </div>
+                            <span style="color:var(--text-primary); font-weight:600;">{{ s.username }}</span>
+                        </div>
+                    </td>
+                    <td class="text-muted font-sm">{{ s.email }}</td>
+                    <td style="text-align:center;">
+                        <span style="font-weight:700; color: var(--accent-cyan-light);">{{ s.tests_taken }}</span>
+                    </td>
+                    <td>
+                        {% if s.tests_taken > 0 %}
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div class="perf-bar-track">
+                                <div class="perf-bar-fill"
+                                     style="width:{{ s.avg_score_pct }}%;
+                                            background: {% if s.avg_score_pct >= 80 %}var(--gradient-green)
+                                                        {% elif s.avg_score_pct >= 50 %}linear-gradient(135deg,#f59e0b,#d97706)
+                                                        {% else %}linear-gradient(135deg,#ef4444,#dc2626){% endif %};">
+                                </div>
+                            </div>
+                            <span style="font-weight:700; min-width:46px;
+                                         color: {% if s.avg_score_pct >= 80 %}var(--accent-green-light)
+                                                {% elif s.avg_score_pct >= 50 %}var(--accent-orange-light)
+                                                {% else %}var(--accent-red-light){% endif %};">
+                                {{ "%.1f"|format(s.avg_score_pct) }}%
+                            </span>
+                        </div>
+                        {% else %}
+                            <span class="text-muted font-sm">No attempts</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('admin_student_report', student_id=s.user_id) }}"
+                           class="btn btn-ghost btn-sm">📋 Report</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">👩‍🎓</div>
+                            <h3>No students registered</h3>
+                            <p>Run the seed script to populate student data.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/simple-datatables@latest" type="text/javascript"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    new simpleDatatables.DataTable("#dataTable", {
+        searchable: true,
+        fixedHeight: true,
+        perPage: 15,
+        perPageSelect: [15, 25, 50, 100]
+    });
+});
+</script>
+{% endblock %}

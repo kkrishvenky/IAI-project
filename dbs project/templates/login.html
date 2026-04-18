@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Login to the Online MCQ Test Management System">
+    <title>Login — MCQ Test System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="login-page">
+
+    <!-- Left branding panel -->
+    <div class="login-branding">
+        <div class="login-logo">📋</div>
+        <h1>MCQ Test System</h1>
+        <p>A complete online examination platform built for Database Systems Lab</p>
+
+        <div class="login-features">
+            <div class="login-feature">
+                <div class="login-feature-icon">⚙️</div>
+                <span>Admin dashboard with real-time analytics</span>
+            </div>
+            <div class="login-feature">
+                <div class="login-feature-icon">📝</div>
+                <span>Dynamic test creation from question bank</span>
+            </div>
+            <div class="login-feature">
+                <div class="login-feature-icon">⏱️</div>
+                <span>Timed MCQ interface with live progress</span>
+            </div>
+            <div class="login-feature">
+                <div class="login-feature-icon">📊</div>
+                <span>Comprehensive performance reports</span>
+            </div>
+            <div class="login-feature">
+                <div class="login-feature-icon">🔒</div>
+                <span>Role-based access control & audit logs</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right form panel -->
+    <div class="login-form-panel">
+        <div class="login-form-title">Welcome Back</div>
+        <div class="login-form-subtitle">Sign in to continue to your account</div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}" style="margin-bottom: 20px;">
+                    {% if category == 'danger' %}❌{% endif %} {{ message }}
+                </div>
+            {% endfor %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('login') }}" id="loginForm">
+            <div class="form-group">
+                <label class="form-label" for="email">Email Address</label>
+                <input type="email" id="email" name="email" class="form-control"
+                       required placeholder="admin@test.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="password">Password</label>
+                <input type="password" id="password" name="password" class="form-control"
+                       required placeholder="Enter your password" autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary w-100 btn-lg" id="loginBtn">
+                🔑 Sign In
+            </button>
+        </form>
+
+        <div class="login-credentials-hint">
+            <strong>🛡️ Admin:</strong> admin@test.com / password123<br>
+            <strong>🎓 Student:</strong> student@test.com / password123<br>
+            <small style="color: var(--text-muted);">All seeded accounts use password: <code style="color: var(--accent-cyan-light);">password123</code></small>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script>
+    document.getElementById('loginForm').addEventListener('submit', function() {
+        const btn = document.getElementById('loginBtn');
+        btn.textContent = 'Signing in...';
+        btn.disabled = true;
+    });
+</script>
+</body>
+</html>

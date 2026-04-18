@@ -1,0 +1,101 @@
+{% extends "layout.html" %}
+{% block title %}Audit Log — MCQ System{% endblock %}
+{% block page_title %}Score Audit Log{% endblock %}
+{% block page_subtitle %}Track all score changes triggered by stored procedures{% endblock %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.css" rel="stylesheet" type="text/css">
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="table-wrapper">
+        <table class="table" id="dataTable">
+            <thead>
+                <tr>
+                    <th style="width:70px;">#</th>
+                    <th style="width:80px;">Attempt ID</th>
+                    <th>Student</th>
+                    <th>Test</th>
+                    <th style="width:110px;">Old Score</th>
+                    <th style="width:110px;">New Score</th>
+                    <th style="width:80px;">Change</th>
+                    <th style="width:160px;">Timestamp</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                {% for entry in audit_log %}
+                <tr data-date="{{ entry.changed_at.strftime('%Y-%m-%d') if entry.changed_at else '' }}">
+                    <td class="text-muted font-sm">{{ loop.index }}</td>
+                    <td class="text-muted font-sm">#{{ entry.student_test_id }}</td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div style="width:30px; height:30px; border-radius:7px; background:var(--gradient-purple);
+                                        display:flex; align-items:center; justify-content:center;
+                                        font-weight:700; font-size:0.8rem; color:white; flex-shrink:0;">
+                                {{ entry.student_name[0].upper() if entry.student_name else '?' }}
+                            </div>
+                            <div>
+                                <div style="color:var(--text-primary); font-weight:600; font-size:0.875rem;">{{ entry.student_name or '—' }}</div>
+                                <div class="font-sm text-muted">{{ entry.student_email or '' }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="color:var(--text-secondary);">{{ entry.test_name or '—' }}</td>
+                    <td>
+                        <span class="audit-old-score font-bold">
+                            {{ entry.old_score | int if entry.old_score is not none else '—' }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="audit-new-score font-bold">
+                            {{ entry.new_score | int if entry.new_score is not none else '—' }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if entry.old_score is not none and entry.new_score is not none %}
+                            {% set delta = entry.new_score - entry.old_score %}
+                            <span class="badge {% if delta > 0 %}badge-active{% elif delta < 0 %}badge-hard{% else %}badge-inactive{% endif %}">
+                                {% if delta > 0 %}+{% endif %}{{ delta | int }}
+                            </span>
+                        {% else %}
+                            <span class="badge badge-inactive">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted font-sm">
+                        {{ entry.changed_at.strftime('%d %b %Y, %H:%M:%S') if entry.changed_at else '—' }}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">🔍</div>
+                            <h3>No audit records yet</h3>
+                            <p>Score changes will appear here automatically via the <code>trg_audit_score_change</code> trigger.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div style="padding:12px 24px; border-top:1px solid var(--border-color); color:var(--text-muted); font-size:0.8rem; display:flex; justify-content:space-between;">
+        <span>🔔 Populated by MySQL trigger <code>trg_audit_score_change</code></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/simple-datatables@latest" type="text/javascript"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    new simpleDatatables.DataTable("#dataTable", {
+        searchable: true,
+        fixedHeight: true,
+        perPage: 20,
+        perPageSelect: [20, 50, 100]
+    });
+});
+</script>
+{% endblock %}

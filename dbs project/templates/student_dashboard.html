@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+{% block title %}My Dashboard — MCQ System{% endblock %}
+{% block page_title %}My Dashboard{% endblock %}
+{% block page_subtitle %}Welcome back, {{ session.get('username') }}! Ready to test your knowledge?{% endblock %}
+
+{% block content %}
+
+<!-- ── QUICK STATS ─────────────────────────────────────── -->
+<div class="stats-grid" style="grid-template-columns: repeat(3,1fr);">
+    <div class="stat-card purple">
+        <div class="stat-card-icon">🧪</div>
+        <div class="stat-card-label">Tests Available</div>
+        <div class="stat-card-value">{{ available_tests | length }}</div>
+    </div>
+    <div class="stat-card cyan">
+        <div class="stat-card-icon">📊</div>
+        <div class="stat-card-label">Tests Completed</div>
+        <div class="stat-card-value">{{ past_results | length }}</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-card-icon">🎯</div>
+        <div class="stat-card-label">Best Score %</div>
+        <div class="stat-card-value">
+            {% if past_results %}
+                {% set best = namespace(val=0) %}
+                {% for r in past_results %}
+                    {% if r.total_questions > 0 %}
+                        {% set pct = (r.score / r.total_questions * 100) %}
+                        {% if pct > best.val %}{% set best.val = pct %}{% endif %}
+                    {% endif %}
+                {% endfor %}
+                {{ "%.0f"|format(best.val) }}%
+            {% else %}—{% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <!-- ── AVAILABLE TESTS ─────────────────────────────── -->
+    <div class="card mb-0" style="grid-column: span 1;">
+        <div class="card-header">
+            <span>🧪 Available Tests</span>
+            <span class="badge badge-active">{{ available_tests | length }} new</span>
+        </div>
+        <div style="padding: 8px 0;">
+            {% for t in available_tests %}
+            <div style="padding: 18px 24px; border-bottom: 1px solid var(--border-color);
+                        display:flex; align-items:center; justify-content:space-between; gap:12px;
+                        transition: background 0.2s;"
+                 onmouseover="this.style.background='rgba(139,92,246,0.05)'"
+                 onmouseout="this.style.background=''">
+                <div>
+                    <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">{{ t.test_name }}</div>
+                    <div class="font-sm text-muted">{{ t.description or 'No description' }}</div>
+                    <div style="display:flex; gap:12px; margin-top:6px;">
+                        <span class="badge badge-student">❓ {{ t.q_count }} Questions</span>
+                        <span class="badge badge-inactive">⏱ {{ t.duration_minutes }} min</span>
+                    </div>
+                </div>
+                <a href="{{ url_for('take_test', test_id=t.test_id) }}" class="btn btn-primary btn-sm" style="flex-shrink:0;">
+                    Start →
+                </a>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">🎉</div>
+                <h3>All caught up!</h3>
+                <p>You've completed all available tests. Check back later for new ones.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- ── PAST RESULTS ───────────────────────────────── -->
+    <div class="card mb-0" style="grid-column: span 1;">
+        <div class="card-header">
+            <span>📋 Past Results</span>
+        </div>
+        <div style="padding: 8px 0;">
+            {% for r in past_results %}
+            {% set pct = (r.score / r.total_questions * 100) if r.total_questions > 0 else 0 %}
+            <div style="padding: 18px 24px; border-bottom: 1px solid var(--border-color);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:600; color:var(--text-primary); margin-bottom:2px;
+                                    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ r.test_name }}</div>
+                        <div class="font-sm text-muted">{{ r.attempt_date.strftime('%d %b %Y, %H:%M') if r.attempt_date else '—' }}</div>
+                    </div>
+                    <div style="text-align:right; flex-shrink:0;">
+                        <div style="font-size:1.3rem; font-weight:800;
+                                    color: {% if pct >= 75 %}var(--accent-green-light){% elif pct >= 50 %}var(--accent-orange-light){% else %}var(--accent-red-light){% endif %};">
+                            {{ r.score | int }}/{{ r.total_questions }}
+                        </div>
+                        <div class="font-sm text-muted">{{ "%.1f"|format(pct) }}%</div>
+                    </div>
+                </div>
+                <div style="margin-top:10px;">
+                    <div class="perf-bar-track">
+                        <div class="perf-bar-fill"
+                             style="width:{{ pct }}%;
+                                    background: {% if pct >= 75 %}var(--gradient-green){% elif pct >= 50 %}linear-gradient(135deg,#f59e0b,#d97706){% else %}linear-gradient(135deg,#ef4444,#dc2626){% endif %};">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">📝</div>
+                <h3>No tests attempted yet</h3>
+                <p>Take a test to see your results here.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

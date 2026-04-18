@@ -1,0 +1,242 @@
+{% extends "layout.html" %}
+{% block title %}Admin Dashboard — MCQ System{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Overview of the entire test management system{% endblock %}
+
+{% block content %}
+
+<!-- ── STAT CARDS ─────────────────────────────────────── -->
+<div class="stats-grid">
+    <div class="stat-card purple">
+        <div class="stat-card-icon">👩‍🎓</div>
+        <div class="stat-card-label">Total Students</div>
+        <div class="stat-card-value">{{ total_students }}</div>
+    </div>
+    <div class="stat-card cyan">
+        <div class="stat-card-icon">❓</div>
+        <div class="stat-card-label">Total Questions</div>
+        <div class="stat-card-value">{{ total_questions }}</div>
+    </div>
+    <div class="stat-card green">
+        <div class="stat-card-icon">📝</div>
+        <div class="stat-card-label">Total Tests</div>
+        <div class="stat-card-value">{{ total_tests }}</div>
+    </div>
+    <div class="stat-card orange">
+        <div class="stat-card-icon">✅</div>
+        <div class="stat-card-label">Active Tests</div>
+        <div class="stat-card-value">{{ active_tests }}</div>
+    </div>
+</div>
+
+<!-- ── CHARTS ROW 1 ──────────────────────────────────── -->
+<div class="charts-grid">
+    <div class="card mb-0">
+        <div class="card-header">
+            <span><span class="card-header-icon">📚</span>Questions by Subject</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="subjChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="card mb-0">
+        <div class="card-header">
+            <span><span class="card-header-icon">🎯</span>Questions by Difficulty</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="diffChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div style="margin-bottom: 24px;"></div>
+
+<!-- ── CHARTS ROW 2 ──────────────────────────────────── -->
+<div class="charts-grid">
+    <div class="card mb-0">
+        <div class="card-header">
+            <span><span class="card-header-icon">📊</span>Avg Score per Test (Top 10)</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="scoreChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="card mb-0">
+        <div class="card-header">
+            <span><span class="card-header-icon">🏆</span>Top Performers</span>
+        </div>
+        <div class="card-body">
+            <div class="chart-container">
+                <canvas id="topChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div style="margin-top: 24px;"></div>
+
+<!-- ── RECENT ACTIVITY TABLE ─────────────────────────── -->
+<div class="card">
+    <div class="card-header">
+        <span><span class="card-header-icon">🕐</span>Recent Test Attempts</span>
+        <a href="{{ url_for('admin_students') }}" class="btn btn-ghost btn-sm">View All</a>
+    </div>
+    <div class="table-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Test</th>
+                    <th>Score</th>
+                    <th>Percentage</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in recent_attempts %}
+                <tr>
+                    <td class="font-bold" style="color: var(--text-primary);">{{ r.student_name }}</td>
+                    <td>{{ r.test_name }}</td>
+                    <td>{{ r.score | int }} / {{ r.total_questions }}</td>
+                    <td>
+                        {% set pct = (r.score / r.total_questions * 100) if r.total_questions > 0 else 0 %}
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <div class="perf-bar-track" style="width:80px;">
+                                <div class="perf-bar-fill" style="width:{{ pct }}%; background: {% if pct >= 75 %}var(--gradient-green){% elif pct >= 50 %}linear-gradient(135deg,#f59e0b,#d97706){% else %}linear-gradient(135deg,#ef4444,#dc2626){% endif %};"></div>
+                            </div>
+                            <span class="{% if pct >= 75 %}text-success{% elif pct >= 50 %}text-cyan{% else %}text-danger{% endif %} font-bold">
+                                {{ "%.1f"|format(pct) }}%
+                            </span>
+                        </div>
+                    </td>
+                    <td class="text-muted font-sm">{{ r.attempt_date.strftime('%d %b %Y, %H:%M') if r.attempt_date else '-' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <h3>No attempts yet</h3>
+                        <p>Student attempts will appear here once tests are taken.</p>
+                    </div>
+                </td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const subjData = {{ q_by_subj | tojson }};
+const diffData = {{ q_by_diff | tojson }};
+const scoreData = {{ avg_scores | tojson }};
+const topData = {{ top_performers | tojson }};
+
+const COLORS = ['#8b5cf6','#06b6d4','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16'];
+
+// Subject Doughnut
+new Chart(document.getElementById('subjChart'), {
+    type: 'doughnut',
+    data: {
+        labels: subjData.map(d => d.subject),
+        datasets: [{
+            data: subjData.map(d => d.c),
+            backgroundColor: COLORS,
+            borderWidth: 0,
+            hoverOffset: 8
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'right', labels: { padding: 14, font: { size: 11 } } }
+        }
+    }
+});
+
+// Difficulty Pie
+new Chart(document.getElementById('diffChart'), {
+    type: 'doughnut',
+    data: {
+        labels: diffData.map(d => d.difficulty_level),
+        datasets: [{
+            data: diffData.map(d => d.c),
+            backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+            borderWidth: 0,
+            hoverOffset: 8
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'right', labels: { padding: 14, font: { size: 11 } } }
+        }
+    }
+});
+
+// Avg Score Bar
+new Chart(document.getElementById('scoreChart'), {
+    type: 'bar',
+    data: {
+        labels: scoreData.map(d => d.test_name.length > 20 ? d.test_name.slice(0,18)+'…' : d.test_name),
+        datasets: [
+            {
+                label: 'Avg Correct',
+                data: scoreData.map(d => parseFloat(d.avg_score || 0).toFixed(1)),
+                backgroundColor: 'rgba(139,92,246,0.8)',
+                borderRadius: 5
+            },
+            {
+                label: 'Total Qs',
+                data: scoreData.map(d => parseFloat(d.avg_total || 0).toFixed(0)),
+                backgroundColor: 'rgba(42,42,58,0.9)',
+                borderRadius: 5
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { padding: 14 } } },
+        scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+            y: { beginAtZero: true, grid: { color: 'rgba(42,42,58,0.8)' } }
+        }
+    }
+});
+
+// Top Performers Horizontal Bar
+new Chart(document.getElementById('topChart'), {
+    type: 'bar',
+    data: {
+        labels: topData.map(d => d.student_name),
+        datasets: [{
+            label: 'Total Score',
+            data: topData.map(d => d.total_score),
+            backgroundColor: 'rgba(6,182,212,0.8)',
+            borderRadius: 5
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: { beginAtZero: true, grid: { color: 'rgba(42,42,58,0.8)' } },
+            y: { grid: { display: false } }
+        }
+    }
+});
+</script>
+{% endblock %}

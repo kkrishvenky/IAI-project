@@ -1,0 +1,235 @@
+{% extends "layout.html" %}
+{% block title %}Question Bank — MCQ System{% endblock %}
+{% block page_title %}Question Bank{% endblock %}
+{% block page_subtitle %}Manage all MCQ questions across subjects{% endblock %}
+
+{% block topbar_actions %}
+    <button class="btn btn-primary btn-sm" data-modal-open="addModal">
+        ➕ Add Question
+    </button>
+{% endblock %}
+
+{% block head %}
+<link href="https://cdn.jsdelivr.net/npm/simple-datatables@latest/dist/style.css" rel="stylesheet" type="text/css">
+{% endblock %}
+
+{% block content %}
+
+<!-- ── QUESTION TABLE CARD ────────────────────────────── -->
+<div class="card" style="margin-bottom: 20px;">
+    <!-- QUESTION TABLE -->
+    <div class="table-wrapper">
+        <table class="table" id="dataTable">
+            <thead>
+                <tr>
+                    <th style="width:60px;">ID</th>
+                    <th>Question</th>
+                    <th style="width:140px;">Subject</th>
+                    <th style="width:100px;">Difficulty</th>
+                    <th style="width:120px;">Created</th>
+                    <th style="width:130px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                {% for q in questions %}
+                <tr data-subject="{{ q.subject }}" data-diff="{{ q.difficulty_level }}">
+                    <td class="text-muted font-sm">{{ q.question_id }}</td>
+                    <td style="color: var(--text-primary);">{{ q.question_text }}</td>
+                    <td>
+                        <span style="font-size:0.8rem; color: var(--accent-cyan-light);">{{ q.subject }}</span>
+                    </td>
+                    <td>
+                        <span class="badge badge-{{ q.difficulty_level | lower }}">
+                            {{ q.difficulty_level }}
+                        </span>
+                    </td>
+                    <td class="text-muted font-sm">{{ q.created_date.strftime('%d %b %Y') if q.created_date else '-' }}</td>
+                    <td>
+                        <div class="d-flex gap-8">
+                            <button class="btn btn-ghost btn-sm"
+                                onclick="populateEditModal(
+                                    {{ q.question_id }},
+                                    {{ q.question_text | tojson }},
+                                    {{ q.subject | tojson }},
+                                    {{ q.difficulty_level | tojson }},
+                                    {{ q.options | tojson }}
+                                )">✏️
+                            </button>
+                            <form method="POST" action="{{ url_for('admin_questions') }}" style="display:inline;"
+                                  onsubmit="return MCQ.confirmDelete('Delete this question? This cannot be undone.')">
+                                <input type="hidden" name="action" value="delete">
+                                <input type="hidden" name="question_id" value="{{ q.question_id }}">
+                                <button type="submit" class="btn btn-danger btn-sm">🗑️</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">❓</div>
+                            <h3>No questions found</h3>
+                            <p>Add your first question using the button above.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<!-- ══ ADD QUESTION MODAL ════════════════════════════════ -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span>➕ Add New Question</span>
+            <button class="modal-close" data-modal-close="addModal">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('admin_questions') }}">
+            <input type="hidden" name="action" value="add">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Question Text *</label>
+                    <textarea name="question_text" class="form-control" rows="3" required placeholder="Enter the full question..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Subject *</label>
+                        <select name="subject" class="form-control" required>
+                            {% for s in subjects %}
+                            <option value="{{ s }}">{{ s }}</option>
+                            {% endfor %}
+                            <option value="__custom__">Other (type below)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Custom Subject (if Other)</label>
+                        <input type="text" name="custom_subject" class="form-control" placeholder="e.g. Networking">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Difficulty *</label>
+                        <select name="difficulty_level" class="form-control" required>
+                            <option value="Easy">Easy</option>
+                            <option value="Medium" selected>Medium</option>
+                            <option value="Hard">Hard</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
+                    <strong>Options</strong> — Select the radio button next to the correct answer
+                </p>
+                {% for i in range(1, 5) %}
+                <div class="form-group" style="display:flex; align-items:center; gap:12px;">
+                    <label style="display:flex; align-items:center; gap:8px; flex-shrink:0; cursor:pointer; color:var(--text-secondary);">
+                        <input type="radio" name="correct_option" value="{{ i }}" required
+                               style="accent-color: var(--accent-purple); width:18px; height:18px;">
+                        <span style="font-weight:700; color: var(--accent-purple-light);">{{ ['A','B','C','D'][i-1] }}</span>
+                    </label>
+                    <input type="text" name="option_{{ i }}" class="form-control"
+                           placeholder="Option {{ ['A','B','C','D'][i-1] }} text" required>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-modal-close="addModal">Cancel</button>
+                <button type="submit" class="btn btn-primary">✅ Save Question</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- ══ EDIT QUESTION MODAL ════════════════════════════════ -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <div class="modal-header">
+            <span>✏️ Edit Question</span>
+            <button class="modal-close" data-modal-close="editModal">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('admin_questions') }}">
+            <input type="hidden" name="action" value="edit">
+            <input type="hidden" name="question_id" id="edit_question_id">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Question Text *</label>
+                    <textarea name="question_text" id="edit_question_text" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Subject *</label>
+                        <input type="text" name="subject" id="edit_subject" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Difficulty *</label>
+                        <select name="difficulty_level" id="edit_difficulty" class="form-control" required>
+                            <option value="Easy">Easy</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Hard">Hard</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="divider"></div>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
+                    <strong>Options</strong> — Select the radio next to the correct answer
+                </p>
+                {% for i in range(1, 5) %}
+                <div class="form-group" style="display:flex; align-items:center; gap:12px;">
+                    <label style="display:flex; align-items:center; gap:8px; flex-shrink:0; cursor:pointer; color:var(--text-secondary);">
+                        <input type="radio" name="correct_option" id="edit_correct_{{ i }}" value="{{ i }}"
+                               style="accent-color: var(--accent-purple); width:18px; height:18px;">
+                        <span style="font-weight:700; color: var(--accent-purple-light);">{{ ['A','B','C','D'][i-1] }}</span>
+                    </label>
+                    <input type="hidden" name="option_id_{{ i }}" id="edit_option_id_{{ i }}">
+                    <input type="text" name="option_{{ i }}" id="edit_option_{{ i }}" class="form-control"
+                           placeholder="Option {{ ['A','B','C','D'][i-1] }}" required>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-ghost" data-modal-close="editModal">Cancel</button>
+                <button type="submit" class="btn btn-primary">💾 Update Question</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/simple-datatables@latest" type="text/javascript"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    new simpleDatatables.DataTable("#dataTable", {
+        searchable: true,
+        fixedHeight: true,
+        perPage: 15,
+        perPageSelect: [15, 25, 50, 100]
+    });
+});
+
+// Override populateEditModal for options with IDs
+function populateEditModal(qid, qtext, subject, difficulty, options) {
+    document.getElementById('edit_question_id').value = qid;
+    document.getElementById('edit_question_text').value = qtext;
+    document.getElementById('edit_subject').value = subject;
+    document.getElementById('edit_difficulty').value = difficulty;
+
+    options.forEach((opt, i) => {
+        const idx = i + 1;
+        const textEl = document.getElementById(`edit_option_${idx}`);
+        const idEl   = document.getElementById(`edit_option_id_${idx}`);
+        const radio  = document.getElementById(`edit_correct_${idx}`);
+        if (textEl) textEl.value = opt.option_text || '';
+        if (idEl)   idEl.value  = opt.option_id || '';
+        if (radio)  radio.checked = !!opt.is_correct;
+    });
+    MCQ.openModal('editModal');
+}
+</script>
+{% endblock %}
